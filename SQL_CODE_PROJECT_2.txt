@@ -1,0 +1,515 @@
+--###### SQL CODE FOR COVID-19 DASHBOARD PROJECT######
+/*
+For the purposes of this project, I first created a new database named 
+"ProjectCorona" to house the required tables.
+
+Downloaded data-sets as .CSV / Excel files from the following sources:
+1. Office for National Statistics (ONS) 
+2. The UK government website (Gov.uk)
+
+Following a review of the raw data, and taking the opportunity to correct any 
+discrepancies, I created tables to contain 'corrected'data-sets, with additional 
+calculated columns. Then, I queried the data further and produced multiple 
+sub data-sets, ready to be  linked' to Power BI to generate the required visualisations 
+for the dashboard. This allowed for an easy-to-understand data flow and ensured data
+was always kept up-to-date.
+
+Please see below for SQL code.
+*/
+
+USE ProjectCorona;
+
+--####################################################--
+
+-- Creating seperate 'Corrected' Datasets from multiple RAW datasets using UNION ALL
+
+--####################################################--
+
+--------------------------------------------------------
+-- All Data related to 'Covid-19 Cases'
+--------------------------------------------------------
+
+DROP TABLE IF EXISTS CorrectedDataset_Cases
+
+SELECT
+	areaCode AS Area_code,
+	areaType AS Area_type,
+	areaName AS Area_name,
+	date AS Reported_date,
+	DATEPART(Month, date) AS Month_no,
+	DATENAME(MONTH, DATEADD(MONTH, DATEDIFF(MONTH, 0, date), 0)) AS Month_name,
+	ISNULL(newCasesBySpecimenDate, 0) AS New_cases,
+	ISNULL(cumCasesBySpecimenDate, 0) AS Cumulative_cases
+INTO
+	CorrectedDataset_Cases
+FROM 
+	RAW_cases_dataset1_2020_Jul_15_from_GOV_UK
+UNION ALL
+SELECT
+	areaCode AS Area_code,
+	areaType AS Area_type,
+	areaName AS Area_name,
+	date AS Reported_date,
+	DATEPART(Month, date) AS Month_no,
+	DATENAME(MONTH, DATEADD(MONTH, DATEDIFF(MONTH, 0, date), 0)) AS Month_name,
+	ISNULL(newCasesBySpecimenDate, 0) AS New_cases,
+	ISNULL(cumCasesBySpecimenDate, 0) AS Cumulative_cases
+FROM 
+	RAW_cases_dataset2_2020_Jul_15_from_GOV_UK
+UNION ALL
+SELECT 
+	area_code AS Area_code,
+	'local authority' AS Area_type,
+	area_name AS Area_name,
+	date AS Reported_date,
+	DATEPART(Month, date) AS Month_no,
+	DATENAME(MONTH, DATEADD(MONTH, DATEDIFF(MONTH, 0, date), 0)) AS Month_name,
+	ISNULL(new_cases, 0) AS New_cases,
+	ISNULL(total_cases, 0) AS Cumulative_cases
+FROM 
+	RAW_cases_dataset3_2020_Jul_15_from_PHE_from_GOV_UK;
+
+
+SELECT *
+FROM CorrectedDataset_Cases;
+
+--------------------------------------------------------
+-- All Data related to 'Covid-19 Deaths'
+--------------------------------------------------------
+
+DROP TABLE IF EXISTS CorrectedDataset_Deaths
+
+SELECT
+	areaCode AS Area_code,
+	'nation' AS Area_type,
+	areaName AS Area_name,
+	date AS Reported_date,
+	NULL AS Week_no,
+	DATEPART(Month, date) AS Month_no,
+	DATENAME(MONTH, DATEADD(MONTH, DATEDIFF(MONTH, 0, date), 0)) AS Month_name,
+	ISNULL(newDeathsByPublishDate, 0) AS New_deaths,
+	ISNULL(cumDeathsByPublishDate, 0) AS Cumulative_deaths
+INTO
+	CorrectedDataset_Deaths
+FROM 
+	RAW_deaths_dataset1_2020_Jul_15_from_GOV_UK
+UNION ALL
+SELECT
+	areaCode AS Area_code,
+	'region' AS Area_type,
+	areaName AS Area_name,
+	date AS Reported_date,
+	NULL AS Week_no,
+	DATEPART(Month, date) AS Month_no,
+	DATENAME(MONTH, DATEADD(MONTH, DATEDIFF(MONTH, 0, date), 0)) AS Month_name,
+	ISNULL(newDeathsByDeathDate, 0) AS New_deaths,
+	ISNULL(cumDeathsByDeathDate, 0) AS Cumulative_deaths
+FROM 
+	RAW_deaths_dataset2_2020_Jul_15_from_GOV_UK
+UNION ALL
+SELECT
+	area_code AS Area_code,
+	'local authority' AS Area_type,
+	area_name AS Area_name,
+	NULL AS Reported_date,
+	week_number AS Week_no,
+	NULL AS Month_no,
+	NULL AS Month_name,
+	ISNULL(number_of_deaths, 0) AS New_deaths,
+	NULL AS Cumulative_deaths
+FROM 
+	RAW_deaths_dataset3_2020_Jul_15_from_ONS;
+
+
+SELECT *
+FROM CorrectedDataset_Deaths;
+
+--------------------------------------------------------
+-- All Data related to 'Population' (in 2020)
+--------------------------------------------------------
+
+DROP TABLE IF EXISTS CorrectedDataset_Population
+
+SELECT
+	AREA_CODE AS Area_code,
+	AREA_NAME AS Area_name,
+	[2020] AS Population_in_2020
+INTO
+	CorrectedDataset_Population
+FROM
+	RAW_population_SNPP_from_ONS_2018
+WHERE
+	AGE_GROUP = 'All ages';
+
+
+SELECT *
+FROM CorrectedDataset_Population;
+
+--------------------------------------------------------
+-- All Data related to 'Standard Area Measurements'
+--------------------------------------------------------
+
+DROP TABLE IF EXISTS CorrectedDataset_SAMs
+
+SELECT 
+	CTRY19CD AS Area_code,
+	CTRY19NM AS Area_name,
+	AREAEHECT AS Area_in_hectares,
+	(AREAEHECT / 100) AS Area_in_km2
+INTO
+	CorrectedDataset_SAMs
+FROM 
+	RAW_area_SAM_dataset1_from_ONS_dec_2019_UK
+UNION ALL
+SELECT
+	RGN19CD AS Area_code,
+	RGN19NM AS Area_name,
+	AREAEHECT AS Area_in_hectares,
+	(AREAEHECT / 100) AS Area_in_km2
+FROM 
+	RAW_area_SAM_dataset2_from_ONS_dec_2019_UK
+UNION ALL
+SELECT 
+	LAD19CD AS Area_code,
+	LAD19NM AS Area_name,
+	AREAEHECT AS Area_in_hectares,
+	(AREAEHECT / 100) AS Area_in_km2
+FROM 
+	RAW_area_SAM_dataset3_from_ONS_dec_2019_UK
+
+SELECT *
+FROM CorrectedDataset_SAMs;
+
+
+--####################################################--
+
+-- Creating Sub-Datasets for Covid-19 associated 'Cases' and 'Deaths'
+
+--####################################################--
+
+--------------------------------------------------------
+-- Sub-Dataset for Covid-19 'Cases' by London Boroughs
+--------------------------------------------------------
+
+DROP TABLE IF EXISTS SubDataset_Cases_Boroughs
+
+;WITH 
+cteWeekNumbers (Area_code, Area_type, Area_name, New_cases, Week_no) AS (
+	SELECT
+		Area_code,
+		Area_type,
+		Area_name,
+		New_cases,
+		(CASE
+			WHEN Reported_date BETWEEN '2020-01-03' AND '2020-01-10' THEN 1
+			WHEN Reported_date BETWEEN '2020-01-10' AND '2020-01-17' THEN 2
+			WHEN Reported_date BETWEEN '2020-01-17' AND '2020-01-24' THEN 3
+			WHEN Reported_date BETWEEN '2020-01-24' AND '2020-01-31' THEN 4
+			WHEN Reported_date BETWEEN '2020-01-31' AND '2020-02-07' THEN 5
+			WHEN Reported_date BETWEEN '2020-02-07' AND '2020-02-14' THEN 6
+			WHEN Reported_date BETWEEN '2020-02-14' AND '2020-02-21' THEN 7
+			WHEN Reported_date BETWEEN '2020-02-21' AND '2020-02-28' THEN 8
+			WHEN Reported_date BETWEEN '2020-02-28' AND '2020-03-06' THEN 9
+			WHEN Reported_date BETWEEN '2020-03-06' AND '2020-03-13' THEN 10
+			WHEN Reported_date BETWEEN '2020-03-13' AND '2020-03-20' THEN 11
+			WHEN Reported_date BETWEEN '2020-03-20' AND '2020-03-27' THEN 12
+			WHEN Reported_date BETWEEN '2020-03-27' AND '2020-04-03' THEN 13
+			WHEN Reported_date BETWEEN '2020-04-03' AND '2020-04-10' THEN 14
+			WHEN Reported_date BETWEEN '2020-04-10' AND '2020-04-17' THEN 15
+			WHEN Reported_date BETWEEN '2020-04-17' AND '2020-04-24' THEN 16
+			WHEN Reported_date BETWEEN '2020-04-24' AND '2020-05-01' THEN 17
+			WHEN Reported_date BETWEEN '2020-05-01' AND '2020-05-08' THEN 18
+			WHEN Reported_date BETWEEN '2020-05-08' AND '2020-05-15' THEN 19
+			WHEN Reported_date BETWEEN '2020-05-15' AND '2020-05-22' THEN 20
+			WHEN Reported_date BETWEEN '2020-05-22' AND '2020-05-29' THEN 21
+			WHEN Reported_date BETWEEN '2020-05-29' AND '2020-06-05' THEN 22
+			WHEN Reported_date BETWEEN '2020-06-05' AND '2020-06-12' THEN 23
+			WHEN Reported_date BETWEEN '2020-06-12' AND '2020-06-19' THEN 24
+			WHEN Reported_date BETWEEN '2020-06-19' AND '2020-06-26' THEN 25
+			WHEN Reported_date BETWEEN '2020-06-26' AND '2020-07-03' THEN 26
+			WHEN Reported_date BETWEEN '2020-07-03' AND '2020-07-10' THEN 27
+		END) AS Week_no
+	FROM
+		CorrectedDataset_Cases
+	WHERE
+		Area_code LIKE 'E09%'	-- the area code for all 33 London Boroughs start with E09...
+),
+
+cteCasesbyWeek (Area_code, Area_name, Week_no, New_cases_by_week) AS (
+	SELECT 
+		Area_code,
+		Area_name,
+		Week_no,
+		SUM(New_cases)
+	FROM 
+		cteWeekNumbers
+	WHERE
+		Week_no IS NOT NULL
+	GROUP BY
+		Area_code,
+		Area_name,
+		Week_no
+),
+
+cteCumulativeCases (Area_code, Area_name, Week_no, Area_ID, New_cases_by_week, Cumulative_cases) AS (
+	SELECT
+		Area_code,
+		Area_name,
+		Week_no, 
+		CONCAT(Area_code, '-', Week_no),
+		New_cases_by_week,
+		SUM(New_cases_by_week) 
+			OVER 
+				(PARTITION BY Area_name 
+				ORDER BY Week_no RANGE 
+				BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)
+	FROM 
+		cteCasesbyWeek
+)
+
+SELECT 
+	*
+INTO 
+	SubDataset_Cases_Boroughs
+FROM 
+	cteCumulativeCases;
+
+
+SELECT *
+FROM SubDataset_Cases_Boroughs;
+
+
+--------------------------------------------------------
+-- Sub-Dataset for Covid-19 'Deaths' by London Boroughs
+--------------------------------------------------------
+
+DROP TABLE IF EXISTS SubDataset_Deaths_Boroughs
+
+;WITH
+cteCorrectedDeaths (Area_code, Area_type, Area_name, New_deaths, Week_no, Corrected_area_name, Corrected_new_deaths) AS (		
+	SELECT
+		Area_code,
+		Area_type,
+		Area_name,
+		New_deaths,
+		Week_no,
+		(CASE
+			WHEN Area_name = 'Hackney' THEN 'Hackney and City of London'
+			ELSE Area_name
+		END),
+		(CASE
+			WHEN Area_name = 'Hackney' AND Week_no = 13 THEN New_deaths + 1  
+			WHEN Area_name = 'Hackney' AND Week_no = 15 THEN New_deaths + 2
+			WHEN Area_name = 'Hackney' AND Week_no = 17 THEN New_deaths + 1
+			ELSE New_deaths
+		END)
+	FROM
+		CorrectedDataset_Deaths
+	WHERE
+		Area_code LIKE 'E09%'	-- the area code for all 33 London Boroughs start with E09...
+		AND Area_name <> 'City of London'
+),
+
+cteCumulativeDeaths (Area_code, Corrected_area_name, Week_no, Area_ID, Corrected_new_deaths, Cumulative_deaths) AS (
+	SELECT
+		Area_code,
+		Corrected_area_name,
+		Week_no,
+		CONCAT(Area_code, '-', Week_no),
+		Corrected_new_deaths,
+		SUM(Corrected_new_deaths) 
+			OVER
+				(PARTITION BY Area_name
+				ORDER BY Week_no
+				RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS Cumulative_deaths
+	FROM 
+		cteCorrectedDeaths
+)
+
+SELECT 
+	*
+INTO 
+	SubDataset_Deaths_Boroughs
+FROM 
+	cteCumulativeDeaths;
+
+
+SELECT *
+FROM SubDataset_Deaths_Boroughs;
+
+
+--------------------------------------------------------
+-- Sub-Dataset for Covid-19 'Cases' Vs 'Deaths' by London Boroughs
+--------------------------------------------------------
+
+DROP TABLE IF EXISTS SubDataset_CasesVsDeath_Boroughs
+
+SELECT
+	d.Area_ID,
+	d.Area_code,
+	d.Corrected_area_name AS Area_name,
+	d.Week_no,
+	ISNULL(d.Corrected_new_deaths, 0) AS New_reported_deaths,
+	ISNULL(d.Cumulative_deaths, 0) AS Cumulative_reported_deaths,
+	ISNULL(c.New_cases_by_week, 0) AS New_lab_confirmed_cases,
+	ISNULL(c.Cumulative_cases, 0) AS Cumulative_lab_confirmed_cases
+INTO
+	SubDataset_CasesVsDeath_Boroughs
+FROM
+	SubDataset_Deaths_Boroughs d
+LEFT JOIN
+	SubDataset_Cases_Boroughs c
+		ON d.Area_ID = c.Area_ID
+
+
+SELECT *
+FROM SubDataset_CasesVsDeath_Boroughs
+
+
+--------------------------------------------------------
+-- Total no of Covid-19 'Cases' Vs 'Population(2020)' by London Boroughs
+--------------------------------------------------------
+
+DROP TABLE IF EXISTS SubDataset_TotalCasesVsPopulation_Boroughs
+
+;WITH 
+cteCasesTotal (Area_code, Area_name, Total_cases, Total_deaths) AS (
+	SELECT 
+		Area_code,
+		Area_name,
+		SUM(New_lab_confirmed_cases),
+		SUM(New_reported_deaths)
+	FROM 
+		SubDataset_CasesVsDeath_Boroughs
+	GROUP BY
+		Area_code,
+		Area_name
+)
+
+SELECT
+	c.Area_code,
+	c.Area_name,
+	c.Total_cases,
+	c.Total_deaths,
+	ROUND(p.Population_in_2020, 0) AS Population_in_2020,
+	ROUND(s.Area_in_km2, 0) AS Area_in_km2,
+	ROUND(p.Population_in_2020 /s.Area_in_km2, 0) AS Population_density_per_km2
+INTO
+	SubDataset_TotalCasesVsPopulation_Boroughs
+FROM 
+	cteCasesTotal c
+LEFT JOIN
+	CorrectedDataset_Population p
+		ON p.Area_code = c.Area_code
+LEFT JOIN
+	CorrectedDataset_SAMs s
+		ON s.Area_code = c.Area_code;
+
+
+SELECT *
+FROM SubDataset_TotalCasesVsPopulation_Boroughs;
+
+
+--------------------------------------------------------
+-- Sub-Dataset for Covid-19 'Cases' Vs 'Deaths' by Regions
+--------------------------------------------------------
+
+DROP TABLE IF EXISTS SubDataset_CasesVsDeath_Regions
+
+;WITH 
+cteCasesRegion (Area_code, Area_type, Area_name, Reported_date, Area_ID, New_cases, Cumulative_cases) AS (
+	SELECT 
+		Area_code,
+		Area_type,
+		Area_name,
+		CAST(Reported_date AS DATE),
+		CONCAT(Area_code, '-', CAST(Reported_date as DATE)),
+		New_cases,
+		Cumulative_cases
+	FROM 
+		CorrectedDataset_Cases
+	WHERE
+		Area_code LIKE 'E12%'	-- the area code for all 9 Regions of England start with E12...
+),
+
+cteDeathsRegion (Area_code, Area_type, Area_name, Reported_date, Area_ID, New_deaths, Cumulative_deaths) AS (
+	SELECT 
+		Area_code,
+		Area_type,
+		Area_name,
+		CAST(Reported_date AS DATE),
+		CONCAT(Area_code, '-', CAST(Reported_date as DATE)),
+		New_deaths,
+		Cumulative_deaths
+	FROM 
+		CorrectedDataset_Deaths
+	WHERE
+		Area_code LIKE 'E12%'	-- the area code for all 9 Regions of England start with E12...
+)
+
+SELECT
+	c.Area_ID,
+	c.Area_code,
+	c.Area_name,
+	c.Reported_date,
+	ISNULL(c.New_cases, 0) AS New_lab_confirmed_cases,
+	ISNULL(c.Cumulative_cases, 0) AS Cumulative_lab_confirmed_cases,
+	ISNULL(d.New_deaths, 0) AS New_reported_deaths,
+	ISNULL(d.Cumulative_deaths, 0) AS Cumulative_reported_deaths
+INTO
+	SubDataset_CasesVsDeath_Regions
+FROM 
+	cteCasesRegion c
+FULL JOIN
+	cteDeathsRegion d
+		ON d.Area_ID = c.Area_ID;
+
+
+SELECT *
+FROM SubDataset_CasesVsDeath_Regions;
+
+
+--------------------------------------------------------
+-- Total no of Covid-19 'Cases' Vs 'Population(2020)' by Regions
+--------------------------------------------------------
+
+DROP TABLE IF EXISTS SubDataset_TotalCasesVsPopulation_Regions
+
+;WITH 
+cteCasesTotal (Area_code, Area_name, Total_cases, Total_deaths) AS (
+	SELECT 
+		Area_code,
+		Area_name,
+		SUM(New_lab_confirmed_cases),
+		SUM(New_reported_deaths)
+	FROM 
+		SubDataset_CasesVsDeath_Regions
+	GROUP BY
+		Area_code,
+		Area_name
+)
+
+SELECT
+	c.Area_code,
+	c.Area_name,
+	c.Total_cases,
+	c.Total_deaths,
+	ROUND(p.Population_in_2020, 0) AS Population_in_2020,
+	ROUND(s.Area_in_km2, 0) AS Area_in_km2,
+	ROUND(p.Population_in_2020 /s.Area_in_km2, 0) AS Population_density_per_km2
+INTO
+	SubDataset_TotalCasesVsPopulation_Regions
+FROM 
+	cteCasesTotal c
+LEFT JOIN
+	CorrectedDataset_Population p
+		ON p.Area_code = c.Area_code
+LEFT JOIN
+	CorrectedDataset_SAMs s
+		ON s.Area_code = c.Area_code;
+
+
+SELECT *
+FROM SubDataset_TotalCasesVsPopulation_Regions;
+
+--###### END OF SQL CODE ######

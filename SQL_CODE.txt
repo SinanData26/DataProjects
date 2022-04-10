@@ -1,0 +1,364 @@
+--###### SQL CODE FOR EUROPE TRIP SPEND ANALYSIS PROJECT ######
+/*
+For the purposes of this project, I first created a new database named 
+"ProjectEuropeTrip" to house the required tables.
+
+Querying the data was an iterative process. Initially, queried the data with 
+individual SQL code to attain a general idea of what to look out for. While doing 
+this I also experimented with CTEs and temp-tables. These can be found at the end 
+of this document. 
+
+Following the review of the original data, and taking the opportunity to correct 
+any discrepancies in the data, I created a new table to contain a 'corrected'
+results-set. Then, by linking the 'corrected' results set / table to EXCEL, 
+I was able to generate the required pivot tables needed for the report. This allowed 
+for an easy-to-understand data flow and quick updating of data, if and when required.
+
+Please see below for SQL code.
+*/
+--------------------------------------------------------
+-- Created a new database for project
+--------------------------------------------------------
+
+CREATE DATABASE ProjectEuropeTrip;
+
+--------------------------------------------------------
+-- Uploaded bank statement from .CSV file and reviewed original data
+--------------------------------------------------------
+-- Made sure column names and data types were appropriate before inserting 
+-- into a new table, named "Statement2020".
+-- Reviewed original data: 
+
+USE ProjectEuropeTrip;
+
+SELECT *
+FROM Statement2020;
+
+--------------------------------------------------------
+-- Created new table with 'calculated' columns
+--------------------------------------------------------
+-- Added 'calculated' columns to new table to allow for querying of data.
+-- Noticed discrepencies while reviewing original data. Rather than changing 
+-- the original data, included new columns with "corrected data" as good practice.
+
+USE ProjectEuropeTrip;
+
+DROP TABLE IF EXISTS Statement2020_corrected;
+
+SELECT
+	[completed_date],
+	[transaction_time],
+	[transaction_date],
+	[description],
+	ISNULL([paid_out], 0) AS paid_out,
+	ISNULL([paid_in], 0) AS paid_in,
+	[exchange_out],
+	[balance],
+	[category],
+	(CASE
+		WHEN 
+			category = ' Hotel' OR
+			description LIKE '%hostel%' OR 
+			description LIKE '%hotel%' OR 
+			description LIKE '%sophie%' OR
+			description LIKE '%booking%' OR
+			description LIKE '%mews%' OR
+			description LIKE '%fininfo%' THEN ' Accommodation'
+		WHEN 
+			description LIKE '%interrail%' OR
+			description LIKE '%easyjet%' OR
+			description LIKE '%ryanair%' OR
+			description LIKE '%insurance%' THEN ' International Travel'
+		WHEN 
+			description LIKE '%tour%' OR
+			description LIKE '%brunn%' OR 
+			description LIKE '%museum%' OR
+			description LIKE '%plitvice%' OR
+			description LIKE '%church%' THEN ' Entertainment'
+		WHEN 
+			category = ' Transport' OR
+			category = ' Travel' THEN ' Local Transport'
+		WHEN
+			category = ' General' THEN ' Top-up'
+		WHEN
+			category = ' Cash' THEN ' Cash In Hand'
+		WHEN
+			category = ' Restaurants' OR
+			description LIKE '%coffee%' OR
+			description LIKE '%pizza coloseum%' THEN ' Eating Out'
+		WHEN
+			description LIKE '%tesco%' THEN ' Groceries'
+		WHEN
+			category = ' Health' THEN ' Shopping'
+		ELSE 
+			category 
+	END) AS Category_Corrected,
+	(CASE
+		WHEN (transaction_date BETWEEN '2020-01-01' AND '2020-02-09') OR (transaction_date BETWEEN '2020-03-07' AND '2020-03-07') THEN 'London'
+		WHEN transaction_date BETWEEN '2020-02-10' AND '2020-02-11' THEN 'Geneva'
+		WHEN transaction_date BETWEEN '2020-02-12' AND '2020-02-13' THEN 'Zermatt'
+		WHEN transaction_date BETWEEN '2020-02-14' AND '2020-02-16' THEN 'Lucerne'
+		WHEN transaction_date BETWEEN '2020-02-17' AND '2020-02-19' THEN 'Vienna'
+		WHEN transaction_date BETWEEN '2020-02-20' AND '2020-02-22' THEN 'Prague'
+		WHEN transaction_date BETWEEN '2020-02-23' AND '2020-02-23' THEN 'Bratislava'
+		WHEN transaction_date BETWEEN '2020-02-24' AND '2020-02-27' THEN 'Budapest'
+		WHEN transaction_date BETWEEN '2020-02-28' AND '2020-03-01' THEN 'Zagreb'
+		WHEN transaction_date BETWEEN '2020-03-02' AND '2020-03-04' THEN 'Jjubljana'
+		WHEN transaction_date BETWEEN '2020-03-05' AND '2020-03-06' THEN 'Salzburg'
+	END) AS City,
+	(CASE
+		WHEN (transaction_date BETWEEN '2020-01-01' AND '2020-02-09') OR (transaction_date BETWEEN '2020-03-07' AND '2020-03-07') THEN 'UK'
+		WHEN transaction_date BETWEEN '2020-02-10' AND '2020-02-16' THEN 'Switzerland'
+		WHEN (transaction_date BETWEEN '2020-02-17' AND '2020-02-19') OR (transaction_date BETWEEN '2020-03-05' AND '2020-03-06') THEN 'Austria'
+		WHEN transaction_date BETWEEN '2020-02-20' AND '2020-02-22' THEN 'Czechia'
+		WHEN transaction_date BETWEEN '2020-02-23' AND '2020-02-23' THEN 'Slovakia'
+		WHEN transaction_date BETWEEN '2020-02-24' AND '2020-02-27' THEN 'Hungary'
+		WHEN transaction_date BETWEEN '2020-02-28' AND '2020-03-01' THEN 'Croatia'
+		WHEN transaction_date BETWEEN '2020-03-02' AND '2020-03-04' THEN 'Slovenia'
+	END) AS Country,
+	(CASE
+		WHEN transaction_date BETWEEN '2020-01-13' AND '2020-02-09' THEN 'Preparation'
+		WHEN transaction_date BETWEEN '2020-02-10' AND '2020-02-16' THEN 'Week 1'
+		WHEN transaction_date BETWEEN '2020-02-17' AND '2020-02-23' THEN 'Week 2'
+		WHEN transaction_date BETWEEN '2020-02-24' AND '2020-03-01' THEN 'Week 3'
+		WHEN transaction_date BETWEEN '2020-03-02' AND '2020-03-08' THEN 'Week 4'
+	END) AS Week_No,
+	DATENAME(MONTH, DATEADD(MONTH, DATEDIFF(MONTH, 0, transaction_date), 0)) AS Month_Name
+INTO
+	Statement2020_corrected
+FROM
+	Statement2020;
+
+
+-- Test:
+SELECT *
+FROM Statement2020_corrected;
+
+
+
+--###### SQL CODE USED WHILE EXPERIMENTING WITH DIFFERENT QUERIES ######
+
+--------------------------------------------------------
+-- How much did I spend in total?
+--------------------------------------------------------
+
+SELECT
+	SUM(paid_out) AS Total_Spent
+FROM 
+	Statement2020_corrected;
+
+--------------------------------------------------------
+-- How much did I spend per month?
+--------------------------------------------------------
+
+SELECT  
+	DATENAME(MONTH, DATEADD(MONTH, DATEDIFF(MONTH, 0, transaction_date), 0)) AS "Month Name",
+	SUM(paid_out) AS "Spent per Month"	
+FROM 
+	Statement2020_corrected
+GROUP BY 
+	DATEADD(MONTH, DATEDIFF(MONTH, 0, transaction_date), 0)
+ORDER BY 
+	DATEADD(MONTH, DATEDIFF(MONTH, 0, transaction_date), 0) ASC;
+
+--------------------------------------------------------
+-- How much did I spend per category?
+--------------------------------------------------------
+
+SELECT
+	category AS Category,
+	ISNULL(SUM(paid_out), 0) AS "Spent per Category",
+	ISNULL(SUM(paid_in), 0) AS "Money In"
+FROM 
+	Statement2020_corrected
+GROUP BY 
+	category;
+
+--------------------------------------------------------
+-- How much did I spend per city / country / week? - Using CASE along with CTEs and TempTables 
+--------------------------------------------------------
+
+/* Using CTEs to get the answer: */
+
+-- Spent per city:
+WITH ctePerCity (Date_of_Transaction, Time_of_Transaction, City) AS (
+	SELECT 
+		transaction_date,
+		transaction_time,
+		CASE
+			WHEN (transaction_date BETWEEN '2020-01-01' AND '2020-02-09') OR (transaction_date BETWEEN '2020-03-07' AND '2020-03-07') THEN 'London'
+			WHEN transaction_date BETWEEN '2020-02-10' AND '2020-02-11' THEN 'Geneva'
+			WHEN transaction_date BETWEEN '2020-02-12' AND '2020-02-13' THEN 'Zermatt'
+			WHEN transaction_date BETWEEN '2020-02-14' AND '2020-02-16' THEN 'Lucerne'
+			WHEN transaction_date BETWEEN '2020-02-17' AND '2020-02-19' THEN 'Vienna'
+			WHEN transaction_date BETWEEN '2020-02-20' AND '2020-02-22' THEN 'Prague'
+			WHEN transaction_date BETWEEN '2020-02-23' AND '2020-02-23' THEN 'Bratislava'
+			WHEN transaction_date BETWEEN '2020-02-24' AND '2020-02-27' THEN 'Budapest'
+			WHEN transaction_date BETWEEN '2020-02-28' AND '2020-03-01' THEN 'Zagreb'
+			WHEN transaction_date BETWEEN '2020-03-02' AND '2020-03-04' THEN 'Jjubljana'
+			WHEN transaction_date BETWEEN '2020-03-05' AND '2020-03-06' THEN 'Salzburg'
+		END
+	FROM
+		Statement2020
+)
+
+SELECT
+	c.City,
+	SUM(s.paid_out) AS "Spent per City"
+FROM
+	ctePerCity c
+JOIN
+	Statement2020 s
+		ON s.transaction_date = c.Date_of_Transaction 
+		AND s.transaction_time = c.Time_of_Transaction
+GROUP BY
+	c.City;
+
+-- Spent per country:
+WITH ctePerCountry (Date_of_Transaction, Time_of_Transaction, Country) AS (
+	SELECT 
+		transaction_date,
+		transaction_time,
+		CASE
+			WHEN (transaction_date BETWEEN '2020-01-01' AND '2020-02-09') OR (transaction_date BETWEEN '2020-03-07' AND '2020-03-07') THEN 'UK'
+			WHEN transaction_date BETWEEN '2020-02-10' AND '2020-02-16' THEN 'Switzerland'
+			WHEN (transaction_date BETWEEN '2020-02-17' AND '2020-02-19') OR (transaction_date BETWEEN '2020-03-05' AND '2020-03-06') THEN 'Austria'
+			WHEN transaction_date BETWEEN '2020-02-20' AND '2020-02-22' THEN 'Czech'
+			WHEN transaction_date BETWEEN '2020-02-23' AND '2020-02-23' THEN 'Slovakia'
+			WHEN transaction_date BETWEEN '2020-02-24' AND '2020-02-27' THEN 'Hungary'
+			WHEN transaction_date BETWEEN '2020-02-28' AND '2020-03-01' THEN 'Croatia'
+			WHEN transaction_date BETWEEN '2020-03-02' AND '2020-03-04' THEN 'Slovenia'
+		END
+	FROM
+		Statement2020
+)
+
+SELECT
+	c.Country,
+	SUM(s.paid_out) AS "Spent per Country"
+FROM
+	ctePerCountry c
+JOIN
+	Statement2020 s
+		ON s.transaction_date = c.Date_of_Transaction 
+		AND s.transaction_time = c.Time_of_Transaction
+GROUP BY
+	c.Country;
+
+-- Spent per week:
+WITH ctePerWeek (Date_of_Transaction, Time_of_Transaction, Week_No) AS (
+	SELECT 
+		transaction_date,
+		transaction_time,
+		CASE
+			WHEN transaction_date BETWEEN '2020-01-13' AND '2020-02-09' THEN 'Preparation'
+			WHEN transaction_date BETWEEN '2020-02-10' AND '2020-02-16' THEN 'Week 1'
+			WHEN transaction_date BETWEEN '2020-02-17' AND '2020-02-23' THEN 'Week 2'
+			WHEN transaction_date BETWEEN '2020-02-24' AND '2020-03-01' THEN 'Week 3'
+			WHEN transaction_date BETWEEN '2020-03-02' AND '2020-03-08' THEN 'Week 4'
+		END
+	FROM
+		Statement2020
+)
+
+SELECT
+	c.Week_No,
+	SUM(s.paid_out) AS "Spent per Week"
+FROM
+	ctePerWeek c
+JOIN
+	Statement2020 s
+		ON s.transaction_date = c.Date_of_Transaction 
+		AND s.transaction_time = c.Time_of_Transaction
+GROUP BY
+	c.Week_No;
+
+
+/* Using TempTables to get the answer: */
+
+DROP TABLE IF EXISTS #TableGrouping;
+
+SELECT 
+	transaction_date,
+	transaction_time,
+	CASE
+		WHEN (transaction_date BETWEEN '2020-01-01' AND '2020-02-09') OR (transaction_date BETWEEN '2020-03-07' AND '2020-03-07') THEN 'London'
+		WHEN transaction_date BETWEEN '2020-02-10' AND '2020-02-11' THEN 'Geneva'
+		WHEN transaction_date BETWEEN '2020-02-12' AND '2020-02-13' THEN 'Zermatt'
+		WHEN transaction_date BETWEEN '2020-02-14' AND '2020-02-16' THEN 'Lucerne'
+		WHEN transaction_date BETWEEN '2020-02-17' AND '2020-02-19' THEN 'Vienna'
+		WHEN transaction_date BETWEEN '2020-02-20' AND '2020-02-22' THEN 'Prague'
+		WHEN transaction_date BETWEEN '2020-02-23' AND '2020-02-23' THEN 'Bratislava'
+		WHEN transaction_date BETWEEN '2020-02-24' AND '2020-02-27' THEN 'Budapest'
+		WHEN transaction_date BETWEEN '2020-02-28' AND '2020-03-01' THEN 'Zagreb'
+		WHEN transaction_date BETWEEN '2020-03-02' AND '2020-03-04' THEN 'Jjubljana'
+		WHEN transaction_date BETWEEN '2020-03-05' AND '2020-03-06' THEN 'Salzburg'
+	END AS City,
+	CASE
+		WHEN (transaction_date BETWEEN '2020-01-01' AND '2020-02-09') OR (transaction_date BETWEEN '2020-03-07' AND '2020-03-07') THEN 'UK'
+		WHEN transaction_date BETWEEN '2020-02-10' AND '2020-02-16' THEN 'Switzerland'
+		WHEN (transaction_date BETWEEN '2020-02-17' AND '2020-02-19') OR (transaction_date BETWEEN '2020-03-05' AND '2020-03-06') THEN 'Austria'
+		WHEN transaction_date BETWEEN '2020-02-20' AND '2020-02-22' THEN 'Czech'
+		WHEN transaction_date BETWEEN '2020-02-23' AND '2020-02-23' THEN 'Slovakia'
+		WHEN transaction_date BETWEEN '2020-02-24' AND '2020-02-27' THEN 'Hungary'
+		WHEN transaction_date BETWEEN '2020-02-28' AND '2020-03-01' THEN 'Croatia'
+		WHEN transaction_date BETWEEN '2020-03-02' AND '2020-03-04' THEN 'Slovenia'
+	END AS Country,
+	CASE
+		WHEN transaction_date BETWEEN '2020-01-13' AND '2020-02-09' THEN 'Preparation'
+		WHEN transaction_date BETWEEN '2020-02-10' AND '2020-02-16' THEN 'Week 1'
+		WHEN transaction_date BETWEEN '2020-02-17' AND '2020-02-23' THEN 'Week 2'
+		WHEN transaction_date BETWEEN '2020-02-24' AND '2020-03-01' THEN 'Week 3'
+		WHEN transaction_date BETWEEN '2020-03-02' AND '2020-03-08' THEN 'Week 4'
+	END AS Week_No
+INTO
+	#TableGrouping
+FROM
+	Statement2020;
+
+-- SELECT all to test if it works:
+SELECT 
+	*
+FROM
+	#TableGrouping;
+
+-- Spent per city:
+SELECT
+	t.City,
+	SUM(s.paid_out) AS "Spent per City"
+FROM
+	#TableGrouping t
+JOIN
+	Statement2020 s
+		ON s.transaction_date = t.transaction_date
+		AND s.transaction_time = t.transaction_time
+GROUP BY
+	t.City;
+
+-- Spent per country:
+SELECT
+	t.Country,
+	SUM(s.paid_out) AS "Spent per Country"
+FROM
+	#TableGrouping t
+JOIN
+	Statement2020 s
+		ON s.transaction_date = t.transaction_date
+		AND s.transaction_time = t.transaction_time
+GROUP BY
+	t.Country;
+
+-- Spent per week:
+SELECT
+	t.Week_No,
+	SUM(s.paid_out) AS "Spent per Week"
+FROM
+	#TableGrouping t
+JOIN
+	Statement2020 s
+		ON s.transaction_date = t.transaction_date
+		AND s.transaction_time = t.transaction_time
+GROUP BY
+	t.Week_No;
+
+--###### END OF SQL CODE ######
