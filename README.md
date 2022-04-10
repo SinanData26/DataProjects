@@ -1,4 +1,4 @@
-# Projects to showcase my skill set
+# Data Projects to Showcase My Skillset
 
 ## Personal Project 1 - Europe Trip Spend Analysis
 The purpose of this project is to demonstrate to prospective employers my skillset for a Data Analyst role. I have taken the initiative to create a personal project, with the objective of showcasing my proficiency and competency in EXCEL and SQL. I hope this project demonstrates not only my technical skills, but also my eagerness and proactive demeanour in taking on new challenges, which I believe are needed to be an ideal candidate.
